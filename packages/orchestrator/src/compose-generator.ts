@@ -59,31 +59,31 @@ const DEVICE_IMAGES: Record<DeviceCategory, string> = {
   // STUB: Safety PLC / SIS — same OpenPLC runtime until otforge-safety-plc is built.
   'safety-plc': 'ghcr.io/iburres/otforge-openplc:latest',
   // STUB: DCS Controller — pymodbus on Alpine until otforge-dcs image is built.
-  'dcs-controller': 'alpine:latest',
+  'dcs-controller': 'ghcr.io/iburres/alpine:latest',
   // STUB: VFD / Motor Drive — Modbus RTU server stub.
-  vfd: 'alpine:latest',
+  vfd: 'ghcr.io/iburres/alpine:latest',
   // BACnet/IP device — bacpypes3 Python server on Alpine (containers/bacnet)
   sensor: 'ghcr.io/iburres/otforge-bacnet:latest',
-  actuator: 'alpine:latest',
-  pump: 'alpine:latest',
-  valve: 'alpine:latest',
-  'flow-meter': 'alpine:latest',
-  'pressure-transmitter': 'alpine:latest',
+  actuator: 'ghcr.io/iburres/alpine:latest',
+  pump: 'ghcr.io/iburres/alpine:latest',
+  valve: 'ghcr.io/iburres/alpine:latest',
+  'flow-meter': 'ghcr.io/iburres/alpine:latest',
+  'pressure-transmitter': 'ghcr.io/iburres/alpine:latest',
   // STUB: Level transmitter — Modbus TCP register server stub.
-  'level-transmitter': 'alpine:latest',
+  'level-transmitter': 'ghcr.io/iburres/alpine:latest',
   // STUB: Analyzer — Modbus TCP register server stub.
-  analyzer: 'alpine:latest',
+  analyzer: 'ghcr.io/iburres/alpine:latest',
   // STUB: PMU — DNP3 / IEC C37.118 stub until otforge-pmu is built.
-  pmu: 'alpine:latest',
+  pmu: 'ghcr.io/iburres/alpine:latest',
   // STUB: IIoT sensor — MQTT publisher stub until otforge-iiot-sensor is built.
-  'iiot-sensor': 'alpine:latest',
+  'iiot-sensor': 'ghcr.io/iburres/alpine:latest',
   // STUB: IoT gateway — MQTT broker/bridge stub until otforge-iot-gateway is built.
-  'iot-gateway': 'alpine:latest',
+  'iot-gateway': 'ghcr.io/iburres/alpine:latest',
   // ── Control Center (Level 3) ────────────────────────────────────────────────
-  hmi: 'frangoteam/fuxa:latest',
+  hmi: 'ghcr.io/iburres/fuxa:latest',
   // OPC UA 1.04 server — asyncua Python server on Alpine (containers/opcua)
   'scada-server': 'ghcr.io/iburres/otforge-opcua:latest',
-  historian: 'influxdb:1.8-alpine',
+  historian: 'ghcr.io/iburres/influxdb:1.8-alpine',
   // STUB: nginx:alpine serves HTTP so the container appears "up" on the network.
   // Replace with otforge-appserver once published.
   'application-server': 'nginx:alpine',
@@ -98,17 +98,17 @@ const DEVICE_IMAGES: Record<DeviceCategory, string> = {
   'ids-ips': 'ghcr.io/iburres/otforge-suricata:latest',
   // STUB: alpine with NET_ADMIN cap acts as a placeholder network device.
   // Replace with otforge-switch / otforge-router once published.
-  switch: 'alpine:latest',
-  router: 'alpine:latest',
+  switch: 'ghcr.io/iburres/alpine:latest',
+  router: 'ghcr.io/iburres/alpine:latest',
   // STUB: Jump server — OpenSSH on Alpine until otforge-jump-server is built.
-  'jump-server': 'alpine:latest',
+  'jump-server': 'ghcr.io/iburres/alpine:latest',
   // STUB: Data diode — Alpine network container; unidirectional routing enforced by nftables.
-  'data-diode': 'alpine:latest',
+  'data-diode': 'ghcr.io/iburres/alpine:latest',
   // STUB: Wireless AP — Alpine stub; real 802.11 simulation requires host Wi-Fi adapter.
-  wap: 'alpine:latest',
+  wap: 'ghcr.io/iburres/alpine:latest',
   // ── Enterprise Zone (Level 4) ───────────────────────────────────────────────
   // STUB: Replace with otforge-dc (Samba AD domain controller) once published.
-  'domain-controller': 'alpine:latest',
+  'domain-controller': 'ghcr.io/iburres/alpine:latest',
   // STUB: nginx:alpine serves HTTP. Replace with otforge-webserver once published.
   'web-server': 'nginx:alpine',
   // STUB: Replace with otforge-bizserver once published.
@@ -195,6 +195,12 @@ const DEVICE_LIMITS: Record<DeviceCategory, { memory: number; cpus: string }> = 
 /** Shape of a single service entry in the generated compose file. */
 interface ComposeService {
   image: string
+  /**
+   * Controls when Docker pulls the image. 'if_not_present' skips the registry
+   * check when the image is already cached locally — critical for students on
+   * metered or slow connections, and prevents Docker Hub rate-limit failures.
+   */
+  pull_policy?: string
   container_name: string
   restart: string
   /**
@@ -511,6 +517,7 @@ export function generateCompose(
 
     services[serviceName] = {
       image,
+      pull_policy: 'if_not_present',
       container_name: `${projectName}-${serviceName}`,
       restart: 'unless-stopped',
       networks: { [netName]: { ipv4_address: effectiveIp } },
@@ -854,6 +861,7 @@ export function generateCompose(
   volumes[`${projectName}-suricata-logs`] = {}
   services['suricata'] = {
     image: 'ghcr.io/iburres/otforge-suricata:latest',
+    pull_policy: 'if_not_present',
     container_name: `${projectName}-suricata`,
     restart: 'unless-stopped',
     // Host network mode: Suricata joins the Docker host's network namespace so it
@@ -893,6 +901,7 @@ export function generateCompose(
   volumes[`${projectName}-zeek-logs`] = {}
   services['zeek'] = {
     image: 'ghcr.io/iburres/otforge-zeek:latest',
+    pull_policy: 'if_not_present',
     container_name: `${projectName}-zeek`,
     restart: 'unless-stopped',
     networks: {
@@ -916,7 +925,8 @@ export function generateCompose(
   // Auth is disabled so protocol containers can write without credentials.
   volumes[`${projectName}-influxdb-data`] = {}
   services['influxdb'] = {
-    image: 'influxdb:1.8-alpine',
+    image: 'ghcr.io/iburres/influxdb:1.8-alpine',
+    pull_policy: 'if_not_present',
     container_name: `${projectName}-influxdb`,
     restart: 'unless-stopped',
     // .240–.249 reserved for infrastructure/system services; user devices start at .10
@@ -949,7 +959,8 @@ export function generateCompose(
   // Loki HTTP API directly for the native live-log panel (Phase 6).
   volumes[`${projectName}-loki-data`] = {}
   services['loki'] = {
-    image: 'grafana/loki:latest',
+    image: 'ghcr.io/iburres/loki:latest',
+    pull_policy: 'if_not_present',
     container_name: `${projectName}-loki`,
     restart: 'unless-stopped',
     networks: {
@@ -1020,7 +1031,8 @@ export function generateCompose(
   }
 
   services['grafana'] = {
-    image: 'grafana/grafana:latest',
+    image: 'ghcr.io/iburres/grafana:latest',
+    pull_policy: 'if_not_present',
     container_name: `${projectName}-grafana`,
     restart: 'unless-stopped',
     networks: {
@@ -1059,7 +1071,8 @@ export function generateCompose(
   if (scenarioDir) {
     const promtailConfigPath = `${scenarioDir}/promtail/config.yaml`.replace(/\\/g, '/')
     services['promtail'] = {
-      image: 'grafana/promtail:latest',
+      image: 'ghcr.io/iburres/promtail:latest',
+      pull_policy: 'if_not_present',
       container_name: `${projectName}-promtail`,
       restart: 'unless-stopped',
       networks: { 'control-net': { ipv4_address: `${controlBase}.244` } },
@@ -1093,7 +1106,8 @@ export function generateCompose(
   // in a standalone BrowserWindow via the hmi:open IPC channel.
   volumes[`${projectName}-fuxa-data`] = {}
   services['fuxa'] = {
-    image: 'frangoteam/fuxa:latest',
+    image: 'ghcr.io/iburres/fuxa:latest',
+    pull_policy: 'if_not_present',
     container_name: `${projectName}-fuxa`,
     restart: 'unless-stopped',
     networks: {
@@ -1109,7 +1123,7 @@ export function generateCompose(
     cap_add: undefined,
     volumes: [`${projectName}-fuxa-data:/usr/src/app/FUXA/server/_appdata`],
     // Healthcheck: FUXA's Node.js HTTP server responds once the process graphics engine
-    // is ready. wget is used since curl is not in the frangoteam/fuxa image.
+    // is ready. wget is used since curl is not in the fuxa image.
     healthcheck: {
       test: ['CMD-SHELL', 'wget --quiet --tries=1 --spider http://localhost:1881 || exit 1'],
       interval: '5s',

@@ -349,24 +349,17 @@ npm ci
 
 ### `npm run dev` fails with "Error: Electron uninstall"
 
-The Electron binary did not download correctly during `npm ci` — Windows Defender and some campus antivirus tools sometimes block or interrupt the download.
+The Electron binary did not download correctly. OTForge includes a repair script that fixes this automatically.
 
-**Step 1 — Try the manual Electron installer first (run from `C:\OTForge`):**
+**Run the repair script (regular PowerShell window — do NOT run as Administrator):**
 ```powershell
-node node_modules/electron/install.js
-npm run dev
+cd C:\OTForge
+.\fix-electron.ps1
 ```
 
-This downloads only the missing Electron binary and is faster than a full reinstall. If it works, you are done.
+The script checks `path.txt`, tries the built-in installer, and if that fails downloads and installs the Electron binary directly from GitHub. When it finishes, run `npm run dev`.
 
-**Step 2 — If Step 1 does not fix it, do a full reinstall (regular PowerShell window, not Run as Administrator):**
-```powershell
-Remove-Item -Recurse -Force node_modules
-npm ci
-npm run dev
-```
-
-If you get a permission error on `Remove-Item`, right-click PowerShell and choose **Run as Administrator**, run `Remove-Item -Recurse -Force node_modules`, then close that window and repeat `npm ci` and `npm run dev` in a regular (non-admin) PowerShell.
+If the script itself fails due to a network error, see the manual steps in the **`Path.txt` missing** section below.
 
 ### `Path.txt` missing in `node_modules\electron\` (Windows)
 
@@ -417,20 +410,29 @@ If every automated approach has failed, you can download the Electron binary dir
 
 2. Right-click the zip → **Extract All** → extract to your Downloads folder.
 
-3. Open PowerShell (regular, not Administrator) and run these three commands in order:
+3. Open PowerShell (**regular window — do NOT run as Administrator**) and run each command one at a time:
+
+   First, confirm the extraction worked:
 ```powershell
-Copy-Item -Recurse "$env:USERPROFILE\Downloads\electron-v42.0.1-win32-x64\dist" `
-    "C:\OTForge\node_modules\electron\dist" -Force
-"electron.exe" | Out-File -FilePath "C:\OTForge\node_modules\electron\path.txt" `
-    -Encoding ascii -NoNewline
+Test-Path "$env:USERPROFILE\Downloads\electron-v42.0.1-win32-x64\electron.exe"
 ```
+   This should print `True`. If it prints `False`, the zip did not extract correctly — try again.
+
+   Copy all the Electron files into the `dist` folder:
+```powershell
+Copy-Item -Recurse "$env:USERPROFILE\Downloads\electron-v42.0.1-win32-x64\*" "C:\OTForge\node_modules\electron\dist\" -Force
+```
+
+> **Important:** The Electron zip extracts files directly into the folder — there is no `dist` subfolder inside the zip. The files (`electron.exe`, `resources.pak`, `locales\`, etc.) go directly into `node_modules\electron\dist\`.
+
+> **Note:** `path.txt` should already exist and contain `electron.exe` — do **not** change it.
 
 4. Verify it worked:
 ```powershell
 cd C:\OTForge
 .\node_modules\.bin\electron --version
 ```
-You should see `v42.0.1`.
+   You should see `v42.0.1` with no download message.
 
 5. Run OTForge:
 ```powershell
@@ -489,6 +491,34 @@ Check that `npm run build:packages` completed without errors first. If it did, t
 
 Confirm you have an internet connection and that Docker Desktop is signed in (or that your network does not block `ghcr.io`). On campus networks, check with IT if container registry traffic is blocked.
 
+### "EOF" error while importing containers (simulation hangs on startup)
+
+You may see an error like:
+```
+failed to copy: httpReadSeeker: failed open: failed to do request:
+Get "https://production.cloudfront.docker.com/...": EOF
+```
+
+This means the connection to Docker's CDN was dropped mid-download — the image layer was interrupted before it finished. It is a network issue, not a problem with OTForge or your installation.
+
+**Step 1 — Simply retry.** Click **Stop Simulation** in OTForge (or close and reopen the app if it is stuck), then click **Run Simulation** again. Docker resumes interrupted downloads and usually succeeds on the second or third attempt.
+
+**Step 2 — Sign in to Docker Hub if you have not already.** Unauthenticated pulls have lower rate limits and are more likely to be dropped by Docker's CDN. Open PowerShell and run:
+```powershell
+docker login
+```
+Enter your Docker Hub username and password (free account at hub.docker.com). Then retry the simulation.
+
+**Step 3 — If it keeps failing on your network,** the issue is likely a campus firewall or VPN dropping large HTTPS downloads. Try:
+- Switching to a different Wi-Fi network (personal hotspot works well)
+- Disconnecting from any VPN before starting the simulation
+- Pulling the images manually one at a time so Docker can retry each layer:
+```powershell
+docker pull ghcr.io/iburres/otforge-suricata:latest
+docker pull ghcr.io/iburres/otforge-zeek:latest
+```
+Once the images are cached locally, OTForge's startup will be fast and will not need to re-download them.
+
 ### "Virtualization not supported" on Windows
 
 You need to enable virtualization in your computer's BIOS/UEFI firmware. The exact steps vary by manufacturer — search for your laptop model + "enable virtualization BIOS". Contact your instructor if you need help.
@@ -519,19 +549,24 @@ npm run dev
 
 Your instructor may push updates to the repository during the semester. To get the latest version:
 
-```bash
+```powershell
 # Windows (PowerShell in C:\OTForge)
 git pull
-npm ci
+npm install
 npm run build:packages
+```
 
+```bash
 # macOS (Terminal in ~/OTForge)
 git pull
-npm ci
+npm install
 npm run build:packages
 ```
 
 Then relaunch with `npm run dev`.
+
+> **Why `npm install` and not `npm ci`?**
+> `npm ci` does a full clean reinstall every time — it deletes `node_modules` and re-downloads everything, including the 90 MB Electron binary, even when the Electron version has not changed. `npm install` is incremental: it only downloads packages that actually changed since your last update. For ongoing updates this is much faster and avoids the Electron download errors students sometimes see on campus networks.
 
 ---
 
@@ -586,7 +621,7 @@ Remove-NetFirewallRule -DisplayName "OTForge — Block inbound lab ports"
 | Navigate to OTForge | `cd C:\OTForge` | `cd ~/OTForge` |
 | Start OTForge | `npm run dev` | `npm run dev` |
 | Scenarios folder | `C:\OTForge\scenarios\` | `~/OTForge/scenarios/` |
-| Update OTForge | `git pull && npm ci && npm run build:packages` | `git pull && npm ci && npm run build:packages` |
+| Update OTForge | `git pull && npm install && npm run build:packages` | `git pull && npm install && npm run build:packages` |
 
 ---
 
