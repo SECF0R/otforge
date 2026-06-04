@@ -2,7 +2,8 @@
 
 The markdown documentation is fully formatted and ready to upload into your team repository, Wiki, or project README. 
 The Primary error
-Your packages/app/package.json file has its "main" execution entry point configured to search for out/main/install.js or an automated setup framework hook, but your bundler compiles everything to out/main/index.js instead.
+## Your packages/app/package.json file has its "main" execution entry point configured to search for out/main/install.js 
+## or an automated setup framework hook, but your bundler compiles everything to out/main/index.js instead.
 ---
 
 ## 🚀 Overview
